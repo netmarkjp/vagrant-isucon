@@ -1,8 +1,8 @@
-# vagrant-isucon/isucon3-qualifier
+# vagrant-isucon/isucon7-qualifier
 
 ## Overview
 
-isucon3予選とほぼ同じ環境を構築するためのVagrantfileです。
+isucon7予選とほぼ同じ環境を構築するためのVagrantfileです。
 
 ## Usage
 
@@ -10,23 +10,23 @@ isucon3予選とほぼ同じ環境を構築するためのVagrantfileです。
 - このリポジトリ内のVagrantfileを手元に用意する
   - 必要に応じてVagrantfileを編集する
 - Vagrantfileがあるディレクトリで`vagrant up`を実行する
+  - ベンチマーク用サーバ(bench)と参加者用サーバ(image)が起動
 - Ansibleによるプロビジョニングが完了したら`vagrant ssh`を実行する
+  - vagrant ssh bench
+  - vagrant ssh image
+- ベンチマークを実行する
+  - sudo -i -u isucon
+  - cd isubata/bench
+  - bin/bench -remotes (imageサーバのIPアドレス)
 
 ## 動作確認
 
-Mac OS X + VirtualBox 5.0 + Vagrant 1.7.4で動作確認済です。
+macOS + VirtualBox 5.1.28 + Vagrant 2.0.0で動作確認済です。
 VMWare Desktopでも動作するかもしれませんが未確認です。
 
 ## 本来の設定と異なるところ
 
-- goのバージョンを依存関係解決のため1.1.2から1.3に変更しています
-- phpのバージョンを5.4系(Amazon Linux標準)から5.3系(CentOS6標準)に変更しています
-- rubyのバージョンを依存関係解決のため2.0.0p247から2.0.0p645に変更しています
-- MySQLのバージョンを5.6.14からMySQL GA最新版(現在は5.6系)に変更しています
-- MySQLの起動スクリプトを/etc/init.d/mysqlから/etc/init.d/mysqldに変更しています
-- ログインユーザをec2-userからvagrantに変更しています
-- supervisordの起動スクリプトをLSB準拠に修正しています
-- 本来のサーバはAWS m3.xlarge(vCPU 4, メモリ15GB)ですが、メモリーの割り当ては2GBに設定しています
+- 本来のサーバは(CPU 1コア、メモリ1GB)の3台構成ですが、初期のメモリー割り当ては2GBに設定しています(プロビジョニング中にDBデータ流し込みでメモリ不足となるため)。
 
 ## FAQ
 
@@ -76,19 +76,13 @@ Vagrantのバージョンが古い可能性があります。最新のVagrantを
 
 以下をご確認ください。
 
-- [ISUCON3(2013) オンライン予選レギュレーション](http://isucon.net/archives/31526183.html)
-- [オンライン予選で使用した問題が手元で再現できるAMIを公開しました](http://isucon.net/archives/32971265.html)
-
-### 初期状態でベンチマークのスコアが0になる
-
-メモリーの割り当てが少なすぎる可能性があります。
-Vagrantfileを編集してメモリーの割り当てを増やしてみてください。
+- [ISUCON7予選問題](https://github.com/isucon/isucon7-qualify)
 
 ### ブラウザで動作確認ができない
 
-Vagrantfileのネットワーク設定がデフォルトのままなので適当に変更してください。
+Vagrantfileのネットワーク設定がデフォルトのままなので、サーバに割り当てられたIPアドレスにブラウザでアクセスしてみてください。
 よくわからない場合は`# config.vm.network "private_network", ip: "192.168.33.10"`のコメントを外してブラウザから192.168.33.10にアクセスしてみてください。
 
 ### Vagrantがない環境で試したい
 
-CentOS6環境を用意できるのであれば[ansible-isucon](https://github.com/matsuu/ansible-isucon)をご利用ください。
+Ubuntu環境を用意できるのであれば[matsuu/ansible-isucon](https://github.com/matsuu/ansible-isucon)をご利用ください。

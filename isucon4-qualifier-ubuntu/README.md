@@ -8,7 +8,7 @@ isucon4予選とほぼ同じ環境を構築するためのVagrantfileです。
 
 - vagrant実行環境を用意する
 - このリポジトリ内のVagrantfileを手元に用意する
--- 必要に応じてVagrantfileを編集する
+  - 必要に応じてVagrantfileを編集する
 - Vagrantfileがあるディレクトリで`vagrant up`を実行する
 - Ansibleによるプロビジョニングが完了したら`vagrant ssh`を実行する
 
@@ -25,6 +25,18 @@ VMWare Desktopでも動作するかもしれませんが未確認です。
 - 本来のサーバはAWS m3.xlarge(vCPU 4, メモリ15GB)ですが、メモリーの割り当ては2GBに設定しています
 
 ## FAQ
+
+### `vagrant up` でBoxのダウンロードが404 Not Foundのエラーになる
+
+Vagrantのバージョンが古いためと思われます。
+可能であれば最新バージョンのVagrantをご利用ください。
+諸事情により古いVagrantしか使えない場合はVagrantfileの先頭に以下を設定してください。
+
+```
+Vagrant::DEFAULT_SERVER_URL.replace('https://vagrantcloud.com')
+```
+
+参考 https://github.com/matsuu/vagrant-isucon/pull/24
 
 ### virtualboxで以下のようなエラーメッセージが表示される
 

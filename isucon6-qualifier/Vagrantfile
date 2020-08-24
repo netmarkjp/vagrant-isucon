@@ -1,13 +1,14 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-box = "bento/centos-6.7"
+#box = "bento/ubuntu-16.04"
+box = "ubuntu/xenial64"
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
-Vagrant.configure(2) do |config|
+Vagrant.configure("2") do |config|
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at
   # https://docs.vagrantup.com.
@@ -29,6 +30,7 @@ Vagrant.configure(2) do |config|
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
   # config.vm.network "private_network", ip: "192.168.33.10"
+  config.vm.network "private_network", type: "dhcp"
 
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
@@ -56,9 +58,8 @@ Vagrant.configure(2) do |config|
   # View the documentation for the provider you are using for more
   # information on available options.
   config.vm.provider "virtualbox" do |vb|
-    vb.memory = "1024"
+    vb.memory = "2048"
   end
-
 
   # Define a Vagrant Push strategy for pushing to Atlas. Other push strategies
   # such as FTP and Heroku are also available. See the documentation at
@@ -71,26 +72,69 @@ Vagrant.configure(2) do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   # config.vm.provision "shell", inline: <<-SHELL
-  #   sudo apt-get update
-  #   sudo apt-get install -y apache2
+  #   apt-get update
+  #   apt-get install -y apache2
   # SHELL
 
-  config.vm.provision "shell", inline: <<-SHELL
-    set -e
-    yum update -y nss curl libcurl
-    yum install -y epel-release git
-    yum localinstall -y https://releases.ansible.com/ansible/rpm/release/epel-6-x86_64/ansible-2.7.9-1.el6.ans.noarch.rpm
+  config.vm.define "bench" do |bench|
+    bench.vm.provision "shell", inline: <<-SHELL
+      set -e
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends ansible gcc git libc6-dev aptitude make
+      snap install --classic go
+      export GOPATH=/tmp/go
+      mkdir -p ${GOPATH}/src/github.com/isucon/
+      cd ${GOPATH}/src/github.com/isucon
+      rm -rf isucon6-qualify
+      git clone https://github.com/isucon/isucon6-qualify.git
+      (
+        cd isucon6-qualify/bench
+	go get github.com/Songmu/timeout
+	go get github.com/mitchellh/go-homedir
+        go get github.com/PuerkitoBio/goquery
+	go get github.com/marcw/cachecontrol
+        make
+      )
+      (
+        cd isucon6-qualify/provisioning/bench
+        PYTHONUNBUFFERED=1 ANSIBLE_FORCE_COLOR=true ansible-playbook -i localhost, ansible/*.yml --connection=local
+      )
+      rm -rf ${GOPATH}
 
-    rm -rf ansible-isucon
-    git clone https://github.com/matsuu/ansible-isucon.git
-    (
-      cd ansible-isucon/isucon2
-      PYTHONUNBUFFERED=1 ANSIBLE_FORCE_COLOR=true ansible-playbook playbook.yml -i local
-    )
-    rm -rf ansible-isucon
-  SHELL
+      usermod -G sudo -a -s /bin/bash isucon
 
-  #config.vm.provision "ansible" do |ansible|
-  #  ansible.playbook = "ansible/playbook.yml"
-  #end
+      echo "Provisioning Successful for bench"
+    SHELL
+  end
+  config.vm.define "image" do |web|
+    web.vm.provision "shell", inline: <<-SHELL
+      set -e
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends ansible aptitude gcc git libc6-dev tzdata make
+      snap install --classic go
+      rm -rf isucon6-qualify
+      git clone https://github.com/isucon/isucon6-qualify.git
+      sed -i -e 's:--disable-phar::' -e '/go-install/s/1\.7/1.10/' isucon6-qualify/provisioning/image/ansible/02_xbuild.yml
+      (
+        cd isucon6-qualify
+	make
+	ln -s isupam_linux bin/isupam
+      )
+      (
+        cd isucon6-qualify/provisioning/image/ansible
+        PYTHONUNBUFFERED=1 ANSIBLE_FORCE_COLOR=true ansible-playbook -i localhost, *.yml --connection=local -t dev
+      )
+      (
+        cd isucon6-qualify/provisioning/image
+	./db_setup.sh
+      )
+      rm -rf isucon6-qualify
+
+      usermod -G sudo -a -s /bin/bash isucon
+
+      echo "Provisioning Successful for image"
+    SHELL
+  end
 end

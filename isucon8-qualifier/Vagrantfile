@@ -1,19 +1,19 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-box = "bento/centos-6.7"
+box = "centos/7"
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
-Vagrant.configure(2) do |config|
+Vagrant.configure("2") do |config|
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at
   # https://docs.vagrantup.com.
 
   # Every Vagrant development environment requires a box. You can search for
-  # boxes at https://atlas.hashicorp.com/search.
+  # boxes at https://vagrantcloud.com/search.
   config.vm.box = box
 
   # Disable automatic box update checking. If you disable this, then
@@ -24,11 +24,18 @@ Vagrant.configure(2) do |config|
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
   # accessing "localhost:8080" will access port 80 on the guest machine.
+  # NOTE: This will enable public access to the opened port
   # config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  # Create a forwarded port mapping which allows access to a specific port
+  # within the machine from a port on the host machine and only allow access
+  # via 127.0.0.1 to disable public access
+  # config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
   # config.vm.network "private_network", ip: "192.168.33.10"
+  config.vm.network "private_network", type: "dhcp"
 
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
@@ -59,38 +66,58 @@ Vagrant.configure(2) do |config|
     vb.memory = "1024"
   end
 
-
-  # Define a Vagrant Push strategy for pushing to Atlas. Other push strategies
-  # such as FTP and Heroku are also available. See the documentation at
-  # https://docs.vagrantup.com/v2/push/atlas.html for more information.
-  # config.push.define "atlas" do |push|
-  #   push.app = "YOUR_ATLAS_USERNAME/YOUR_APPLICATION_NAME"
-  # end
-
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   # config.vm.provision "shell", inline: <<-SHELL
-  #   sudo apt-get update
-  #   sudo apt-get install -y apache2
+  #   apt-get update
+  #   apt-get install -y apache2
   # SHELL
 
-  config.vm.provision "shell", inline: <<-SHELL
-    set -e
-    yum update -y nss curl libcurl
-    yum install -y epel-release git
-    yum localinstall -y https://releases.ansible.com/ansible/rpm/release/epel-6-x86_64/ansible-2.7.9-1.el6.ans.noarch.rpm
+  config.vm.define "webapp" do |webapp|
+    webapp.vm.provision "shell", inline: <<-SHELL
+      set -e
+      yum update -y
+      yum install -y epel-release
+      yum install -y ansible git
 
-    rm -rf ansible-isucon
-    git clone https://github.com/matsuu/ansible-isucon.git
-    (
-      cd ansible-isucon/isucon2
-      PYTHONUNBUFFERED=1 ANSIBLE_FORCE_COLOR=true ansible-playbook playbook.yml -i local
-    )
-    rm -rf ansible-isucon
-  SHELL
+      GITDIR="/tmp/torb"
+      rm -rf ${GITDIR}
+      git clone https://github.com/isucon/isucon8-qualify.git ${GITDIR}
+      sed -i '/^BUNDLED WITH/,$d' ${GITDIR}/webapp/ruby/Gemfile.lock
+      (
+        cd ${GITDIR}/provisioning
+        cat >local <<EOF
+[webapp1]
+localhost ansible_connection=local
+EOF
+        PYTHONUNBUFFERED=1 ANSIBLE_FORCE_COLOR=true ansible-playbook -i local webapp1.yml
+      )
+      rm -rf ${GITDIR}
+    SHELL
+  end
 
-  #config.vm.provision "ansible" do |ansible|
-  #  ansible.playbook = "ansible/playbook.yml"
-  #end
+  config.vm.define "bench" do |bench|
+    bench.vm.provision "shell", inline: <<-SHELL
+      set -e
+      yum update -y
+      yum install -y epel-release
+      yum install -y ansible git
+
+      GITDIR="/tmp/torb"
+      rm -rf ${GITDIR}
+      git clone https://github.com/isucon/isucon8-qualify.git ${GITDIR}
+      sed -i '/^BUNDLED WITH/,$d' ${GITDIR}/webapp/ruby/Gemfile.lock
+      (
+        cd ${GITDIR}/provisioning
+        cat >local <<EOF
+[bench]
+localhost ansible_connection=local
+EOF
+        sed -i -e '/start_bench_worker/s/^/#/' bench.yml
+        PYTHONUNBUFFERED=1 ANSIBLE_FORCE_COLOR=true ansible-playbook -i local bench.yml
+      )
+      rm -rf ${GITDIR}
+    SHELL
+  end
 end
